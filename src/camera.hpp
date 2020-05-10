@@ -15,6 +15,7 @@
 class camera
 {
  public:
+    camera() = default;
     // vfov: top to bottom, in degrees
     camera(vec3 lookfrom, vec3 lookat, vec3 vup, double vfov, double aspect,
            double aperture, double focus_dist, double t0 = 0, double t1 = 0)

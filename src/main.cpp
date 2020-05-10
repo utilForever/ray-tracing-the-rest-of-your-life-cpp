@@ -50,16 +50,18 @@ vec3 ray_color(const ray& r, const color& background, const hittable& world,
     }
 
     ray scattered;
-    color attenuation;
     const color emitted = rec.mat_ptr->emitted(rec.u, rec.v, rec.p);
+    double pdf = 0.0;
+    color albedo;
 
-    if (!rec.mat_ptr->scatter(r, rec, attenuation, scattered))
+    if (!rec.mat_ptr->scatter(r, rec, albedo, scattered, pdf))
     {
         return emitted;
     }
 
-    return emitted +
-           attenuation * ray_color(scattered, background, world, depth - 1);
+    return emitted + albedo * rec.mat_ptr->scattering_pdf(r, rec, scattered) *
+                         ray_color(scattered, background, world, depth - 1) /
+                         pdf;
 }
 
 hittable_list random_scene()
@@ -180,9 +182,9 @@ hittable_list simple_light()
     return objects;
 }
 
-hittable_list cornell_box()
+hittable_list cornell_box(camera& cam, double aspect)
 {
-    hittable_list objects;
+    hittable_list world;
 
     auto red = std::make_shared<lambertian>(
         std::make_shared<solid_color>(.65, .05, .05));
@@ -193,29 +195,41 @@ hittable_list cornell_box()
     auto light = std::make_shared<diffuse_light>(
         std::make_shared<solid_color>(15, 15, 15));
 
-    objects.add(std::make_shared<flip_face>(
+    world.add(std::make_shared<flip_face>(
         std::make_shared<yz_rect>(0, 555, 0, 555, 555, green)));
-    objects.add(std::make_shared<yz_rect>(0, 555, 0, 555, 0, red));
-    objects.add(std::make_shared<xz_rect>(213, 343, 227, 332, 554, light));
-    objects.add(std::make_shared<flip_face>(
-        std::make_shared<xz_rect>(0, 555, 0, 555, 0, white)));
-    objects.add(std::make_shared<xz_rect>(0, 555, 0, 555, 555, white));
-    objects.add(std::make_shared<flip_face>(
+    world.add(std::make_shared<yz_rect>(0, 555, 0, 555, 0, red));
+    world.add(std::make_shared<flip_face>(
+        std::make_shared<xz_rect>(213, 343, 227, 332, 554, light)));
+    world.add(std::make_shared<flip_face>(
+        std::make_shared<xz_rect>(0, 555, 0, 555, 555, white)));
+    world.add(std::make_shared<xz_rect>(0, 555, 0, 555, 0, white));
+    world.add(std::make_shared<flip_face>(
         std::make_shared<xy_rect>(0, 555, 0, 555, 555, white)));
 
     std::shared_ptr<hittable> box1 =
         std::make_shared<box>(point3(0, 0, 0), point3(165, 330, 165), white);
     box1 = std::make_shared<rotate_y>(box1, 15);
     box1 = std::make_shared<translate>(box1, vec3(265, 0, 295));
-    objects.add(std::move(box1));
+    world.add(std::move(box1));
 
     std::shared_ptr<hittable> box2 =
         std::make_shared<box>(point3(0, 0, 0), point3(165, 165, 165), white);
     box2 = std::make_shared<rotate_y>(box2, -18);
-    box2 = std::make_shared<translate>(box2, vec3(130, 0, 65));
-    objects.add(std::move(box2));
+    box2 = std::make_shared<translate>(box2, vec3(130,0,65));
+    world.add(std::move(box2));
 
-    return objects;
+    const point3 lookfrom(278, 278, -800);
+    const point3 lookat(278, 278, 0);
+    const vec3 vup(0, 1, 0);
+    const auto dist_to_focus = 10.0;
+    const auto aperture = 0.0;
+    const auto vfov = 40.0;
+    const auto t0 = 0.0;
+    const auto t1 = 1.0;
+
+    cam = camera(lookfrom, lookat, vup, vfov, aspect, aperture, dist_to_focus, t0, t1);
+
+    return world;
 }
 
 hittable_list cornell_smoke()
@@ -340,26 +354,18 @@ hittable_list final_scene()
 
 int main()
 {
-    const int image_width = 600;
-    const int image_height = 600;
-    const int samples_per_pixel = 10000;
+    const int image_width = 500;
+    const int image_height = 500;
+    const int samples_per_pixel = 100;
     const int max_depth = 50;
     const auto aspect_ratio = static_cast<double>(image_width) / image_height;
 
     std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
-    const auto world = final_scene();
-
-    const vec3 lookfrom{478, 278, -800};
-    const vec3 lookat{278, 278, 0};
-    const vec3 vup{0, 1, 0};
-    const auto dist_to_focus = 10.0;
-    const auto aperture = 0.0;
-    const auto vfov = 40.0;
     const color background{0, 0, 0};
 
-    const camera cam(lookfrom, lookat, vup, vfov, aspect_ratio, aperture,
-                     dist_to_focus, 0.0, 1.0);
+    camera cam;
+    const auto world = cornell_box(cam, aspect_ratio);
 
     for (int j = image_height - 1; j >= 0; --j)
     {

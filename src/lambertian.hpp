@@ -14,22 +14,33 @@
 #include "material.hpp"
 #include "texture.hpp"
 
+#include <utility>
+
 class lambertian final : public material
 {
  public:
-    lambertian(std::shared_ptr<texture> a) : albedo(a)
+    lambertian(std::shared_ptr<texture> a) : albedo(std::move(a))
     {
         // Do nothing
     }
 
-    bool scatter([[maybe_unused]] const ray& r_in, const hit_record& rec,
-                 vec3& attenuation, ray& scattered) const override
+    bool scatter(const ray& r_in, const hit_record& rec, color& alb,
+                 ray& scattered, double& pdf) const override
     {
-        const vec3 scatter_direction = rec.normal + random_unit_vector();
-        scattered = ray(rec.p, scatter_direction, r_in.time());
-        attenuation = albedo->value(rec.u, rec.v, rec.p);
+        const vec3 direction = random_in_hemisphere(rec.normal);
+        scattered = ray{rec.p, unit_vector(direction), r_in.time()};
+        alb = albedo->value(rec.u, rec.v, rec.p);
+        pdf = 0.5 / pi;
 
         return true;
+    }
+
+    double scattering_pdf([[maybe_unused]] const ray& r_in,
+                          const hit_record& rec,
+                          const ray& scattered) const override
+    {
+        const auto cosine = dot(rec.normal, unit_vector(scattered.direction()));
+        return cosine < 0 ? 0 : cosine / pi;
     }
 
     std::shared_ptr<texture> albedo;

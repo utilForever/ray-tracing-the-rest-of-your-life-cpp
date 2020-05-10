@@ -19,8 +19,21 @@ class material
  public:
     virtual ~material() = default;
 
-    virtual bool scatter(const ray& r_in, const hit_record& rec,
-                         vec3& attenuation, ray& scattered) const = 0;
+    virtual bool scatter([[maybe_unused]] const ray& r_in,
+                         [[maybe_unused]] const hit_record& rec,
+                         [[maybe_unused]] color& albedo,
+                         [[maybe_unused]] ray& scattered,
+                         [[maybe_unused]] double& pdf) const
+    {
+        return false;
+    }
+
+    virtual double scattering_pdf([[maybe_unused]] const ray& r_in,
+                                  [[maybe_unused]] const hit_record& rec,
+                                  [[maybe_unused]] const ray& scattered) const
+    {
+        return 0.0;
+    }
 
     virtual color emitted([[maybe_unused]] double u, [[maybe_unused]] double v,
                           [[maybe_unused]] const point3& p) const

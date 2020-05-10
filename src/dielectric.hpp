@@ -21,10 +21,10 @@ class dielectric final : public material
         // Do nothing
     }
 
-    bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation,
-                 ray& scattered) const override
+    bool scatter(const ray& r_in, const hit_record& rec, color& alb,
+                 ray& scattered, [[maybe_unused]] double& pdf) const override
     {
-        attenuation = vec3{1.0, 1.0, 1.0};
+        alb = vec3{1.0, 1.0, 1.0};
         const double etai_over_etat =
             rec.front_face ? (1.0 / ref_idx) : ref_idx;
 

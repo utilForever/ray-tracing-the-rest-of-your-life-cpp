@@ -24,11 +24,11 @@ class isotropic final : public material
         // Do nothing
     }
 
-    bool scatter(const ray& r_in, const hit_record& rec, vec3& attenuation,
-                 ray& scattered) const override
+    bool scatter(const ray& r_in, const hit_record& rec, color& alb,
+                 ray& scattered, [[maybe_unused]] double& pdf) const override
     {
         scattered = ray{rec.p, random_in_unit_sphere(), r_in.time()};
-        attenuation = albedo->value(rec.u, rec.v, rec.p);
+        alb = albedo->value(rec.u, rec.v, rec.p);
 
         return true;
     }

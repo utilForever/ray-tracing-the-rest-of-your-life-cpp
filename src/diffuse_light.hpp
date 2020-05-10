@@ -25,8 +25,8 @@ class diffuse_light final : public material
 
     bool scatter([[maybe_unused]] const ray& r_in,
                  [[maybe_unused]] const hit_record& rec,
-                 [[maybe_unused]] vec3& attenuation,
-                 [[maybe_unused]] ray& scattered) const override
+                 [[maybe_unused]] color& alb, [[maybe_unused]] ray& scattered,
+                 [[maybe_unused]] double& pdf) const override
     {
         return false;
     }
