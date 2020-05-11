@@ -28,8 +28,7 @@ struct hit_record
     void set_face_normal(const ray& r, const vec3& outward_normal)
     {
         // dot(r.direction(), outward_normal) > 0.0  => ray is inside the sphere
-        // dot(r.direction(), outward_normal) <= 0.0 => ray is outside the
-        // sphere
+        // dot(r.direction(), outward_normal) <= 0.0 => ray is outside the sphere
         front_face = dot(r.direction(), outward_normal) < 0;
         normal = front_face ? outward_normal : -outward_normal;
     }
@@ -43,6 +42,17 @@ class hittable
     virtual bool hit(const ray& r, double t_min, double t_max,
                      hit_record& rec) const = 0;
     virtual bool bounding_box(double t0, double t1, aabb& output_box) const = 0;
+
+    virtual double pdf_value([[maybe_unused]] const point3& o,
+                             [[maybe_unused]] const vec3& v) const
+    {
+        return 0.0;
+    }
+
+    virtual vec3 random([[maybe_unused]] const vec3& p) const
+    {
+        return vec3{1, 0, 0};
+    }
 };
 
 #endif

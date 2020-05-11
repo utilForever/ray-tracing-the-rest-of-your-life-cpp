@@ -13,13 +13,16 @@
 #include "checker_texture.hpp"
 #include "common.hpp"
 #include "constant_medium.hpp"
+#include "cosine_pdf.hpp"
 #include "dielectric.hpp"
 #include "diffuse_light.hpp"
 #include "flip_face.hpp"
 #include "hittable_list.hpp"
+#include "hittable_pdf.hpp"
 #include "image_texture.hpp"
 #include "lambertian.hpp"
 #include "metal.hpp"
+#include "mixture_pdf.hpp"
 #include "moving_sphere.hpp"
 #include "noise_texture.hpp"
 #include "rotate_y.hpp"
@@ -33,7 +36,7 @@
 #include <iostream>
 
 vec3 ray_color(const ray& r, const color& background, const hittable& world,
-               int depth)
+               const std::shared_ptr<hittable>& lights, int depth)
 {
     hit_record rec;
 
@@ -51,38 +54,29 @@ vec3 ray_color(const ray& r, const color& background, const hittable& world,
 
     ray scattered;
     const color emitted = rec.mat_ptr->emitted(r, rec, rec.u, rec.v, rec.p);
-    double pdf = 0.0;
+    double pdf_val = 0.0;
     color albedo;
 
-    if (!rec.mat_ptr->scatter(r, rec, albedo, scattered, pdf))
+    if (!rec.mat_ptr->scatter(r, rec, albedo, scattered, pdf_val))
     {
         return emitted;
     }
 
-    const auto on_light =
-        vec3{random_double(213, 343), 554, random_double(227, 332)};
-    auto to_light = on_light - rec.p;
-    const auto distance_squared = to_light.length_squared();
-    to_light = unit_vector(to_light);
+    const std::shared_ptr<hittable> light_ptr = std::make_shared<xz_rect>(
+        213, 343, 227, 332, 554, std::make_shared<material>());
+    hittable_pdf p0{light_ptr, rec.p};
 
-    if (dot(to_light, rec.normal) < 0)
-    {
-        return emitted;
-    }
+    cosine_pdf p1{rec.normal};
+    const mixture_pdf p{std::make_shared<hittable_pdf>(p0),
+                        std::make_shared<cosine_pdf>(p1)};
 
-    const double light_area = (343 - 213) * (332 - 227);
-    const auto light_cosine = fabs(to_light.y());
-    if (light_cosine < 0.000001)
-    {
-        return emitted;
-    }
+    scattered = ray{rec.p, p.generate(), r.time()};
+    pdf_val = p.value(scattered.direction());
 
-    pdf = distance_squared / (light_cosine * light_area);
-    scattered = ray{rec.p, to_light, r.time()};
-
-    return emitted + albedo * rec.mat_ptr->scattering_pdf(r, rec, scattered) *
-                         ray_color(scattered, background, world, depth - 1) /
-                         pdf;
+    return emitted +
+           albedo * rec.mat_ptr->scattering_pdf(r, rec, scattered) *
+               ray_color(scattered, background, world, lights, depth - 1) /
+               pdf_val;
 }
 
 hittable_list random_scene()
@@ -236,7 +230,7 @@ hittable_list cornell_box(camera& cam, double aspect)
     std::shared_ptr<hittable> box2 =
         std::make_shared<box>(point3(0, 0, 0), point3(165, 165, 165), white);
     box2 = std::make_shared<rotate_y>(box2, -18);
-    box2 = std::make_shared<translate>(box2, vec3(130,0,65));
+    box2 = std::make_shared<translate>(box2, vec3(130, 0, 65));
     world.add(std::move(box2));
 
     const point3 lookfrom(278, 278, -800);
@@ -248,7 +242,8 @@ hittable_list cornell_box(camera& cam, double aspect)
     const auto t0 = 0.0;
     const auto t1 = 1.0;
 
-    cam = camera(lookfrom, lookat, vup, vfov, aspect, aperture, dist_to_focus, t0, t1);
+    cam = camera(lookfrom, lookat, vup, vfov, aspect, aperture, dist_to_focus,
+                 t0, t1);
 
     return world;
 }
@@ -377,7 +372,7 @@ int main()
 {
     const int image_width = 600;
     const int image_height = 600;
-    const int samples_per_pixel = 100;
+    const int samples_per_pixel = 1000;
     const int max_depth = 50;
     const auto aspect_ratio = static_cast<double>(image_width) / image_height;
 
@@ -387,6 +382,8 @@ int main()
 
     camera cam;
     const auto world = cornell_box(cam, aspect_ratio);
+
+    const auto lights = std::make_shared<hittable_list>();
 
     for (int j = image_height - 1; j >= 0; --j)
     {
@@ -401,7 +398,7 @@ int main()
                 const auto u = (i + random_double()) / image_width;
                 const auto v = (j + random_double()) / image_height;
                 ray r = cam.get_ray(u, v);
-                color += ray_color(r, background, world, max_depth);
+                color += ray_color(r, background, world, lights, max_depth);
             }
 
             color.write_color(std::cout, samples_per_pixel);

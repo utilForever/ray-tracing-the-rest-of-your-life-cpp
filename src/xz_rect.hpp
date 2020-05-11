@@ -37,6 +37,28 @@ class xz_rect final : public hittable
         return true;
     }
 
+    double pdf_value(const point3& origin, const vec3& v) const override
+    {
+        hit_record rec;
+        if (!this->hit(ray{origin, v}, 0.001, infinity, rec))
+        {
+            return 0.0;
+        }
+
+        const auto area = (x1 - x0) * (z1 - z0);
+        const auto distance_squared = rec.t * rec.t * v.length_squared();
+        const auto cosine = fabs(dot(v, rec.normal) / v.length());
+
+        return distance_squared / (cosine * area);
+    }
+
+    vec3 random(const vec3& origin) const override
+    {
+        const auto random_point =
+            point3{random_double(x0, x1), k, random_double(z0, z1)};
+        return random_point - origin;
+    }
+
     std::shared_ptr<material> mp;
     double x0 = 0.0, x1 = 0.0, z0 = 0.0, z1 = 0.0, k = 0.0;
 };

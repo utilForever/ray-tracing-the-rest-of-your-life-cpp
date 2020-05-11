@@ -25,4 +25,13 @@ inline vec3 random_cosine_direction()
     return vec3{x, y, z};
 }
 
+class pdf
+{
+ public:
+    virtual ~pdf() = default;
+
+    virtual double value(const vec3& direction) const = 0;
+    virtual vec3 generate() const = 0;
+};
+
 #endif
