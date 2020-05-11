@@ -35,10 +35,12 @@ class material
         return 0.0;
     }
 
-    virtual color emitted([[maybe_unused]] double u, [[maybe_unused]] double v,
+    virtual color emitted([[maybe_unused]] const ray& r_in,
+                          [[maybe_unused]] const hit_record& rec,
+                          [[maybe_unused]] double u, [[maybe_unused]] double v,
                           [[maybe_unused]] const point3& p) const
     {
-        return color(0, 0, 0);
+        return color{0, 0, 0};
     }
 };
 

@@ -50,7 +50,7 @@ vec3 ray_color(const ray& r, const color& background, const hittable& world,
     }
 
     ray scattered;
-    const color emitted = rec.mat_ptr->emitted(rec.u, rec.v, rec.p);
+    const color emitted = rec.mat_ptr->emitted(r, rec, rec.u, rec.v, rec.p);
     double pdf = 0.0;
     color albedo;
 
@@ -58,6 +58,27 @@ vec3 ray_color(const ray& r, const color& background, const hittable& world,
     {
         return emitted;
     }
+
+    const auto on_light =
+        vec3{random_double(213, 343), 554, random_double(227, 332)};
+    auto to_light = on_light - rec.p;
+    const auto distance_squared = to_light.length_squared();
+    to_light = unit_vector(to_light);
+
+    if (dot(to_light, rec.normal) < 0)
+    {
+        return emitted;
+    }
+
+    const double light_area = (343 - 213) * (332 - 227);
+    const auto light_cosine = fabs(to_light.y());
+    if (light_cosine < 0.000001)
+    {
+        return emitted;
+    }
+
+    pdf = distance_squared / (light_cosine * light_area);
+    scattered = ray{rec.p, to_light, r.time()};
 
     return emitted + albedo * rec.mat_ptr->scattering_pdf(r, rec, scattered) *
                          ray_color(scattered, background, world, depth - 1) /
@@ -354,8 +375,8 @@ hittable_list final_scene()
 
 int main()
 {
-    const int image_width = 500;
-    const int image_height = 500;
+    const int image_width = 600;
+    const int image_height = 600;
     const int samples_per_pixel = 100;
     const int max_depth = 50;
     const auto aspect_ratio = static_cast<double>(image_width) / image_height;
