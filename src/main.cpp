@@ -52,29 +52,27 @@ vec3 ray_color(const ray& r, const color& background, const hittable& world,
         return background;
     }
 
-    ray scattered;
+    scatter_record srec;
     const color emitted = rec.mat_ptr->emitted(r, rec, rec.u, rec.v, rec.p);
-    double pdf_val = 0.0;
-    color albedo;
-
-    if (!rec.mat_ptr->scatter(r, rec, albedo, scattered, pdf_val))
+    if (!rec.mat_ptr->scatter(r, rec, srec))
     {
         return emitted;
     }
 
-    const std::shared_ptr<hittable> light_ptr = std::make_shared<xz_rect>(
-        213, 343, 227, 332, 554, std::make_shared<material>());
-    hittable_pdf p0{light_ptr, rec.p};
+    if (srec.is_specular)
+    {
+        return srec.attenuation * ray_color(srec.specular_ray, background,
+                                            world, lights, depth - 1);
+    }
 
-    cosine_pdf p1{rec.normal};
-    const mixture_pdf p{std::make_shared<hittable_pdf>(p0),
-                        std::make_shared<cosine_pdf>(p1)};
+    const auto light_ptr = std::make_shared<hittable_pdf>(lights, rec.p);
+    const mixture_pdf p{light_ptr, srec.pdf_ptr};
 
-    scattered = ray{rec.p, p.generate(), r.time()};
-    pdf_val = p.value(scattered.direction());
+    const ray scattered = ray{rec.p, p.generate(), r.time()};
+    const auto pdf_val = p.value(scattered.direction());
 
     return emitted +
-           albedo * rec.mat_ptr->scattering_pdf(r, rec, scattered) *
+           srec.attenuation * rec.mat_ptr->scattering_pdf(r, rec, scattered) *
                ray_color(scattered, background, world, lights, depth - 1) /
                pdf_val;
 }
@@ -221,17 +219,16 @@ hittable_list cornell_box(camera& cam, double aspect)
     world.add(std::make_shared<flip_face>(
         std::make_shared<xy_rect>(0, 555, 0, 555, 555, white)));
 
+    std::shared_ptr<material> aluminum =
+        std::make_shared<metal>(color(0.8, 0.85, 0.88), 0.0);
     std::shared_ptr<hittable> box1 =
-        std::make_shared<box>(point3(0, 0, 0), point3(165, 330, 165), white);
+        std::make_shared<box>(point3(0, 0, 0), point3(165, 330, 165), aluminum);
     box1 = std::make_shared<rotate_y>(box1, 15);
     box1 = std::make_shared<translate>(box1, vec3(265, 0, 295));
     world.add(std::move(box1));
 
-    std::shared_ptr<hittable> box2 =
-        std::make_shared<box>(point3(0, 0, 0), point3(165, 165, 165), white);
-    box2 = std::make_shared<rotate_y>(box2, -18);
-    box2 = std::make_shared<translate>(box2, vec3(130, 0, 65));
-    world.add(std::move(box2));
+    std::shared_ptr<material> glass = std::make_shared<dielectric>(1.5);
+    world.add(std::make_shared<sphere>(point3(190, 90, 190), 90, glass));
 
     const point3 lookfrom(278, 278, -800);
     const point3 lookat(278, 278, 0);
@@ -384,6 +381,10 @@ int main()
     const auto world = cornell_box(cam, aspect_ratio);
 
     const auto lights = std::make_shared<hittable_list>();
+    lights->add(std::make_shared<xz_rect>(213, 343, 227, 332, 554,
+                                          std::make_shared<material>()));
+    lights->add(std::make_shared<sphere>(point3{190, 90, 190}, 90,
+                                         std::make_shared<material>()));
 
     for (int j = image_height - 1; j >= 0; --j)
     {
@@ -391,17 +392,18 @@ int main()
 
         for (int i = 0; i < image_width; ++i)
         {
-            vec3 color{0, 0, 0};
+            color pixel_color;
 
             for (int s = 0; s < samples_per_pixel; ++s)
             {
-                const auto u = (i + random_double()) / image_width;
-                const auto v = (j + random_double()) / image_height;
+                const auto u = (i + random_double()) / (image_width - 1);
+                const auto v = (j + random_double()) / (image_height - 1);
                 ray r = cam.get_ray(u, v);
-                color += ray_color(r, background, world, lights, max_depth);
+                pixel_color +=
+                    ray_color(r, background, world, lights, max_depth);
             }
 
-            color.write_color(std::cout, samples_per_pixel);
+            pixel_color.write_color(std::cout, samples_per_pixel);
         }
     }
 

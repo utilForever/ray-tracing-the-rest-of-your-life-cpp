@@ -16,6 +16,7 @@
 #include <utility>
 
 void get_sphere_uv(const vec3& p, double& u, double& v);
+vec3 random_to_sphere(double radius, double distance_squared);
 
 class sphere final : public hittable
 {
@@ -31,8 +32,12 @@ class sphere final : public hittable
              hit_record& rec) const override;
     bool bounding_box(double t0, double t1, aabb& output_box) const override;
 
+    double pdf_value(const point3& o, const vec3& v) const override;
+
+    vec3 random(const vec3& p) const override;
+
     vec3 center;
-    double radius{0.0};
+    double radius{ 0.0 };
     std::shared_ptr<material> mat_ptr;
 };
 
@@ -92,12 +97,51 @@ inline bool sphere::bounding_box([[maybe_unused]] double t0,
     return true;
 }
 
+inline double sphere::pdf_value(const point3& o, const vec3& v) const
+{
+    hit_record rec;
+    if (!this->hit(ray(o, v), 0.001, infinity, rec))
+    {
+        return 0.0;
+    }
+
+    const auto cos_theta_max =
+        sqrt(1 - radius * radius / (center - o).length_squared());
+    const auto solid_angle = 2 * pi * (1 - cos_theta_max);
+
+    return 1 / solid_angle;
+}
+
+inline vec3 sphere::random(const vec3& p) const
+{
+    const vec3 direction = center - p;
+    const auto distance_squared = direction.length_squared();
+
+    onb uvw;
+    uvw.build_from_w(direction);
+
+    return uvw.local(random_to_sphere(radius, distance_squared));
+}
+
 inline void get_sphere_uv(const vec3& p, double& u, double& v)
 {
     const auto phi = atan2(p.z(), p.x());
     const auto theta = asin(p.y());
     u = 1 - (phi + pi) / (2 * pi);
     v = (theta + pi / 2) / pi;
+}
+
+inline vec3 random_to_sphere(double radius, double distance_squared)
+{
+    const auto r1 = random_double();
+    const auto r2 = random_double();
+    const auto z = 1 + r2 * (sqrt(1 - radius * radius / distance_squared) - 1);
+
+    const auto phi = 2 * pi * r1;
+    const auto x = cos(phi) * sqrt(1 - z * z);
+    const auto y = sin(phi) * sqrt(1 - z * z);
+
+    return vec3{x, y, z};
 }
 
 #endif

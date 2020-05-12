@@ -21,15 +21,18 @@ class metal final : public material
         // Do nothing
     }
 
-    bool scatter(const ray& r_in, const hit_record& rec, color& alb,
-                 ray& scattered, [[maybe_unused]] double& pdf) const override
+    bool scatter(const ray& r_in, const hit_record& rec,
+                 scatter_record& srec) const override
     {
         const vec3 reflected =
             reflect(unit_vector(r_in.direction()), rec.normal);
-        scattered = ray{rec.p, reflected + fuzz * random_in_unit_sphere()};
-        alb = albedo;
+        srec.specular_ray =
+            ray{rec.p, reflected + fuzz * random_in_unit_sphere()};
+        srec.attenuation = albedo;
+        srec.is_specular = true;
+        srec.pdf_ptr = nullptr;
 
-        return dot(scattered.direction(), rec.normal) > 0;
+        return true;
     }
 
     vec3 albedo;

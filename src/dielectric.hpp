@@ -21,21 +21,23 @@ class dielectric final : public material
         // Do nothing
     }
 
-    bool scatter(const ray& r_in, const hit_record& rec, color& alb,
-                 ray& scattered, [[maybe_unused]] double& pdf) const override
+    bool scatter(const ray& r_in, const hit_record& rec,
+                 scatter_record& srec) const override
     {
-        alb = vec3{1.0, 1.0, 1.0};
-        const double etai_over_etat =
-            rec.front_face ? (1.0 / ref_idx) : ref_idx;
+        srec.is_specular = true;
+        srec.pdf_ptr = nullptr;
+        srec.attenuation = color{1.0, 1.0, 1.0};
 
         const vec3 unit_direction = unit_vector(r_in.direction());
-        const double cos_theta = ffmin(dot(-unit_direction, rec.normal), 1.0);
+        const double cos_theta = fmin(dot(-unit_direction, rec.normal), 1.0);
         const double sin_theta = sqrt(1.0 - cos_theta * cos_theta);
 
+        const double etai_over_etat =
+            (rec.front_face) ? (1.0 / ref_idx) : (ref_idx);
         if (etai_over_etat * sin_theta > 1.0)
         {
             const vec3 reflected = reflect(unit_direction, rec.normal);
-            scattered = ray{rec.p, reflected};
+            srec.specular_ray = ray{rec.p, reflected, r_in.time()};
 
             return true;
         }
@@ -44,14 +46,13 @@ class dielectric final : public material
         if (random_double() < reflect_prob)
         {
             const vec3 reflected = reflect(unit_direction, rec.normal);
-            scattered = ray{rec.p, reflected};
+            srec.specular_ray = ray{rec.p, reflected, r_in.time()};
 
             return true;
         }
 
-        const vec3 refracted =
-            refract(unit_direction, rec.normal, etai_over_etat);
-        scattered = ray{rec.p, refracted};
+        const vec3 refracted = refract(unit_direction, rec.normal, etai_over_etat);
+        srec.specular_ray = ray{rec.p, refracted, r_in.time()};
 
         return true;
     }

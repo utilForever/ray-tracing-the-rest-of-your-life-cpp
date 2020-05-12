@@ -11,8 +11,17 @@
 #define RAY_TRACING_MATERIAL_HPP
 
 #include "common.hpp"
+#include "pdf.hpp"
 
 struct hit_record;
+
+struct scatter_record
+{
+    ray specular_ray;
+    bool is_specular;
+    color attenuation;
+    std::shared_ptr<pdf> pdf_ptr;
+};
 
 class material
 {
@@ -21,9 +30,7 @@ class material
 
     virtual bool scatter([[maybe_unused]] const ray& r_in,
                          [[maybe_unused]] const hit_record& rec,
-                         [[maybe_unused]] color& albedo,
-                         [[maybe_unused]] ray& scattered,
-                         [[maybe_unused]] double& pdf) const
+                         [[maybe_unused]] scatter_record& srec) const
     {
         return false;
     }

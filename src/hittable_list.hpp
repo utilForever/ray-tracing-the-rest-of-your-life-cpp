@@ -39,6 +39,10 @@ class hittable_list final : public hittable
              hit_record& rec) const override;
     bool bounding_box(double t0, double t1, aabb& output_box) const override;
 
+    double pdf_value(const point3& o, const vec3& v) const override;
+
+    vec3 random(const vec3& p) const override;
+
     std::vector<std::shared_ptr<hittable>> objects;
 };
 
@@ -86,6 +90,25 @@ inline bool hittable_list::bounding_box(double t0, double t1,
     }
 
     return true;
+}
+
+inline double hittable_list::pdf_value(const point3& o, const vec3& v) const
+{
+    const auto weight = 1.0 / objects.size();
+    auto sum = 0.0;
+
+    for (const auto& object : objects)
+    {
+        sum += weight * object->pdf_value(o, v);
+    }
+
+    return sum;
+}
+
+inline vec3 hittable_list::random(const vec3& o) const
+{
+    const auto int_size = static_cast<int>(objects.size());
+    return objects[random_int(0, int_size - 1)]->random(o);
 }
 
 #endif

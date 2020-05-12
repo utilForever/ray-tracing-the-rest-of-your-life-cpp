@@ -91,6 +91,21 @@ class vec3
 
     void write_color(std::ostream& out, int samples_per_pixel)
     {
+        // Replace NaN component values with zero.
+        // See explanation in Ray Tracing: The Rest of Your Life.
+        if (e[0] != e[0])
+        {
+            e[0] = 0.0;
+        }
+        if (e[1] != e[1])
+        {
+            e[1] = 0.0;
+        }
+        if (e[2] != e[2])
+        {
+            e[2] = 0.0;
+        }
+
         // Divide the color total by the number of samples and gamma-correct
         // for a gamma value of 2.0.
         const auto scale = 1.0 / samples_per_pixel;
